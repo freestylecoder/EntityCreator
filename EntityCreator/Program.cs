@@ -12,6 +12,21 @@ namespace EntityCreator {
 				lines
 			);
 
+		private static int NearestPrime( int number ) {
+			for( ; number > 2; --number ) {
+				if( number % 2 == 0 ) continue;
+
+				int boundary = (int)Math.Floor( Math.Sqrt( number ) );
+				for( int i = 3; i <= boundary; i += 2 )
+					if( number % i == 0 )
+						continue;
+
+				break;
+			}
+
+			return Enumerable.Max( new[] { 2, number } );
+		}
+
 		static void Main( string[] args ) {
 			IEnumerable<string> lines = File.ReadAllLines( args[0] );
 
@@ -39,6 +54,14 @@ namespace EntityCreator {
 				)
 				.Select( x => (x[0], x[1]) );
 
+			Random random = new Random();
+			int[] primes = new[] {
+				NearestPrime( random.Next( 0b1000_0000, 0b1_0000_0000_0000_0000 ) ),
+				NearestPrime( random.Next( 0b1000_0000, 0b1_0000_0000_0000_0000 ) )
+			};
+
+			string newCopy = $"new {Class}( { string.Join( ", ", Fields.Select( x => $"this.{x.FieldName}" ) ) } );";
+
 			StringBuilder sb = new StringBuilder();
 
 			sb.AppendLine( 
@@ -47,44 +70,33 @@ namespace {Namespace} {{
 	public class {Class} : IEquatable<{Class}> {{
 {JoinWithNewLines( Fields.Select( x => $"		public readonly {x.DataType} {x.FieldName};" ) )}
 
-		public {Class} (" );
-			sb.AppendLine(
-				string.Join(
-					$",{Environment.NewLine}",
-					Fields.Select( x => $"\t\t\t{x.DataType} {x.FieldName.ToLower()} = default" )
-				)
-			);
-
-			sb.AppendLine( 
-$@"		) {{
+		public {Class} (
+{JoinWithNewLines( Fields.Select( x => $"			{x.DataType} {x.FieldName.ToLower()} = default," ) ).TrimEnd( ',' )}
+		) {{
 {JoinWithNewLines( Fields.Select( x => $"			this.{x.FieldName} = {x.FieldName.ToLower()};" ) )}
 		}}
 
 		public {Class}( {Class} copy )
 			: this( {string.Join( ", ", Fields.Select( x => $"copy.{x.FieldName}" ) )} ) {{ }}
 
-" );
-			string newCopy = $"new {Class}( { string.Join( ", ", Fields.Select( x => $"this.{x.FieldName}" ) ) } );";
-			Fields
-				.Select( x => 
+{JoinWithNewLines(
+	Fields
+		.Select( x =>
 $@"		public {Class} With{x.FieldName}( {x.DataType} {x.FieldName.ToLower()} ) =>
 			{newCopy.Replace( $"this.{x.FieldName}", x.FieldName.ToLower() )}"
-				)
-				.ToList()
-				.ForEach( s => sb.AppendLine( s ) );
-			sb.AppendLine();
+		)
+)}
 
-			sb.AppendLine(
-$@"		public override bool Equals( object obj ) {{
+public override bool Equals( object obj ) {{
 			if( obj is {Class} that )
 				return this.Equals( that );
 
 			return base.Equals( obj );
-		}}" );
-			sb.AppendLine();
+		}}
 
-			sb.AppendLine(
-$@"		private int? _hash = null;
+		private int? _hash = null;
+		private const int _bigPrime = {primes.Max()};
+		private const int _littlePrime = {primes.Min()};
 		public override int GetHashCode() {{
 			Func<object, int> SafeHashCode = ( obj ) =>
 				 obj is object ish
@@ -93,9 +105,9 @@ $@"		private int? _hash = null;
 
 			if( !_hash.HasValue ) {{
 				unchecked {{
-					_hash = 3;
+					_hash = _bigPrime;
 
-{ string.Join( "\r\n", Fields.Select( x => $"					_hash = _hash * 5 + SafeHashCode( {x.FieldName} );" ) )}
+{ string.Join( "\r\n", Fields.Select( x => $"					_hash = _hash * _littlePrime + SafeHashCode( {x.FieldName} );" ) )}
 				}}
 			}}
 

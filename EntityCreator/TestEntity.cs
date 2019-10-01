@@ -41,6 +41,9 @@ namespace EntityCreator {
 		}
 
 		private int? _hash = null;
+		private int _bigPrime => throw new NotImplementedException();
+		private int _littlePrime => throw new NotImplementedException();
+
 		public override int GetHashCode() {
 			Func<object, int> SafeHashCode = ( obj ) =>
 				 obj is object ish
@@ -49,12 +52,12 @@ namespace EntityCreator {
 
 			if( !_hash.HasValue ) {
 				unchecked {
-					_hash = 3;
+					_hash = _bigPrime;
 
-					_hash = _hash * 5 + SafeHashCode( Id );
-					_hash = _hash * 5 + SafeHashCode( Descrption );
-					_hash = _hash * 5 + SafeHashCode( Updated );
-					_hash = _hash * 5 + SafeHashCode( ListOfInts );
+					_hash = _hash * _littlePrime + SafeHashCode( Id );
+					_hash = _hash * _littlePrime + SafeHashCode( Descrption );
+					_hash = _hash * _littlePrime + SafeHashCode( Updated );
+					_hash = _hash * _littlePrime + SafeHashCode( ListOfInts );
 				}
 			}
 

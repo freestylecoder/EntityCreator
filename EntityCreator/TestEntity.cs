@@ -41,22 +41,22 @@ namespace EntityCreator {
 		}
 
 		private int? _hash = null;
-		private const int _bigPrime = 14767;
-		private const int _littlePrime = 7841;
+		private const int _bigPrime = 30497;
+		private const int _littlePrime = 5309;
 		public override int GetHashCode() {
 			Func<object, int> SafeHashCode = ( obj ) =>
-				 obj is object ish
-				 ? ish.GetHashCode()
-				 : 0;
+				obj is object ish
+				? ish.GetHashCode()
+				: 0;
 
 			if( !_hash.HasValue ) {
 				unchecked {
 					_hash = _bigPrime;
 
-					_hash = _hash * _littlePrime + SafeHashCode( Id );
-					_hash = _hash * _littlePrime + SafeHashCode( Descrption );
-					_hash = _hash * _littlePrime + SafeHashCode( Updated );
-					_hash = _hash * _littlePrime + SafeHashCode( ListOfInts );
+					_hash = _hash * _littlePrime + SafeHashCode( this.Id );
+					_hash = _hash * _littlePrime + SafeHashCode( this.Descrption );
+					_hash = _hash * _littlePrime + SafeHashCode( this.Updated );
+					_hash = _hash * _littlePrime + SafeHashCode( this.ListOfInts );
 				}
 			}
 

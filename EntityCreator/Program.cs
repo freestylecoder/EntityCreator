@@ -12,11 +12,67 @@ namespace EntityCreator {
 				lines
 			);
 
+		private static string PrintUsings( IEnumerable<string> Usings ) =>
+			JoinWithNewLines( Usings );
+
+		private static string PrintFields( IEnumerable<(string DataType, string FieldName)> Fields ) =>
+			JoinWithNewLines( Fields.Select( x => $"		public readonly {x.DataType} {x.FieldName};" ) );
+
 		private static string DefaultCtor( string Class, IEnumerable<(string DataType,string FieldName)> Fields ) =>
 $@"		public {Class} (
 {JoinWithNewLines( Fields.Select( x => $"			{x.DataType} {x.FieldName.ToLower()} = default," ) ).TrimEnd( ',' )}
 		) {{
 {JoinWithNewLines( Fields.Select( x => $"			this.{x.FieldName} = {x.FieldName.ToLower()};" ) )}
+		}}";
+
+		private static string CopyCtor( string Class, IEnumerable<(string DataType, string FieldName)> Fields ) =>
+$@"		public {Class}( {Class} copy )
+			: this( {string.Join( ", ", Fields.Select(x => $"copy.{x.FieldName}" ) )} ) {{ }}";
+
+		private static string Withers( string Class, IEnumerable<(string DataType, string FieldName)> Fields ) {
+			string newCopy = $"new {Class}( { string.Join( ", ", Fields.Select( x => $"this.{x.FieldName}" ) ) } );";
+
+			return JoinWithNewLines(
+				Fields
+					.Select( x =>
+$@"		public {Class} With{x.FieldName}( {x.DataType} {x.FieldName.ToLower()} ) =>
+			{newCopy.Replace( $"this.{x.FieldName}", x.FieldName.ToLower() )}"
+					)
+			);
+		}
+
+		private static string GetHashCode( IEnumerable<(string DataType, string FieldName)> Fields ) =>
+$@"		private int? _hash = null;
+		private const int _bigPrime = {Primes.BigPrime};
+		private const int _littlePrime = {Primes.LittlePrime};
+		public override int GetHashCode() {{
+			Func<object, int> SafeHashCode = ( obj ) =>
+				obj is object ish
+				? ish.GetHashCode()
+				: 0;
+
+			if( !_hash.HasValue ) {{
+				unchecked {{
+					_hash = _bigPrime;
+
+{string.Join( "\r\n", Fields.Select( x => $"					_hash = _hash * _littlePrime + SafeHashCode( this.{x.FieldName} );" ) )}
+				}}
+			}}
+
+			return _hash.Value;
+		}}";
+
+		private static string EquatableEquals( string Class, IEnumerable<(string DataType, string FieldName)> Fields ) =>
+$@"		public bool Equals( {Class} that ) {{
+			if( ReferenceEquals( that, null ) )
+				return false;
+
+			return
+				ReferenceEquals( this, that )
+				|| (
+					this.GetHashCode() == that.GetHashCode()
+{string.Join( "\r\n", Fields.Select( x => $"					&& this.{x.FieldName} == that.{x.FieldName}" ) )}
+				);
 		}}";
 
 		static void Main( string[] args ) {
@@ -46,34 +102,19 @@ $@"		public {Class} (
 				)
 				.Select( x => (x[0], x[1]) );
 
-			int[] primes = new[] {
-				Primes.Random,
-				Primes.Random
-			};
-
-			string newCopy = $"new {Class}( { string.Join( ", ", Fields.Select( x => $"this.{x.FieldName}" ) ) } );";
-
-			StringBuilder sb = new StringBuilder();
-
-			sb.AppendLine( 
-$@"{JoinWithNewLines( Usings )}
+			File.WriteAllText(
+				args[0],
+$@"{PrintUsings( Usings )}
 
 namespace {Namespace} {{
 	public class {Class} : IEquatable<{Class}> {{
-{JoinWithNewLines( Fields.Select( x => $"		public readonly {x.DataType} {x.FieldName};" ) )}
+{PrintFields( Fields )}
 
 {DefaultCtor( Class, Fields )}
 
-		public {Class}( {Class} copy )
-			: this( {string.Join( ", ", Fields.Select( x => $"copy.{x.FieldName}" ) )} ) {{ }}
+{CopyCtor( Class, Fields )}
 
-{JoinWithNewLines(
-	Fields
-		.Select( x =>
-$@"		public {Class} With{x.FieldName}( {x.DataType} {x.FieldName.ToLower()} ) =>
-			{newCopy.Replace( $"this.{x.FieldName}", x.FieldName.ToLower() )}"
-		)
-)}
+{Withers( Class, Fields )}
 
 		public override bool Equals( object obj ) {{
 			if( obj is {Class} that )
@@ -82,40 +123,12 @@ $@"		public {Class} With{x.FieldName}( {x.DataType} {x.FieldName.ToLower()} ) =>
 			return base.Equals( obj );
 		}}
 
-		private int? _hash = null;
-		private const int _bigPrime = {primes.Max()};
-		private const int _littlePrime = {primes.Min()};
-		public override int GetHashCode() {{
-			Func<object, int> SafeHashCode = ( obj ) =>
-				 obj is object ish
-				 ? ish.GetHashCode()
-				 : 0;
-
-			if( !_hash.HasValue ) {{
-				unchecked {{
-					_hash = _bigPrime;
-
-{ string.Join( "\r\n", Fields.Select( x => $"					_hash = _hash * _littlePrime + SafeHashCode( {x.FieldName} );" ) )}
-				}}
-			}}
-
-			return _hash.Value;
-		}}
+{GetHashCode( Fields )}
 
 		public override string ToString() =>
 			throw new NotImplementedException();
 
-		public bool Equals( {Class} that ) {{
-			if( ReferenceEquals( that, null ) )
-				return false;
-
-			return
-				ReferenceEquals( this, that )
-				|| (
-					this.GetHashCode() == that.GetHashCode()
-{ string.Join( "\r\n", Fields.Select( x => $"					&& this.{x.FieldName} == that.{x.FieldName}" ) )}
-				);
-		}}
+{EquatableEquals( Class, Fields )}
 
 		public static bool operator ==( {Class} left, {Class} right ) =>
 			ReferenceEquals( left, null )
@@ -125,11 +138,8 @@ $@"		public {Class} With{x.FieldName}( {x.DataType} {x.FieldName.ToLower()} ) =>
 		public static bool operator !=( {Class} left, {Class} right ) =>
 			!( left == right );
 	}}
-}}" );
-
-			File.WriteAllText( args[0], sb.ToString() );
-			Console.WriteLine( File.ReadAllText( args[0] ) );
-			Console.ReadKey();
+}}"
+			);
 		}
 	}
 }

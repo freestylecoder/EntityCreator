@@ -12,20 +12,12 @@ namespace EntityCreator {
 				lines
 			);
 
-		private static int NearestPrime( int number ) {
-			for( ; number > 2; --number ) {
-				if( number % 2 == 0 ) continue;
-
-				int boundary = (int)Math.Floor( Math.Sqrt( number ) );
-				for( int i = 3; i <= boundary; i += 2 )
-					if( number % i == 0 )
-						continue;
-
-				break;
-			}
-
-			return Enumerable.Max( new[] { 2, number } );
-		}
+		private static string DefaultCtor( string Class, IEnumerable<(string DataType,string FieldName)> Fields ) =>
+$@"		public {Class} (
+{JoinWithNewLines( Fields.Select( x => $"			{x.DataType} {x.FieldName.ToLower()} = default," ) ).TrimEnd( ',' )}
+		) {{
+{JoinWithNewLines( Fields.Select( x => $"			this.{x.FieldName} = {x.FieldName.ToLower()};" ) )}
+		}}";
 
 		static void Main( string[] args ) {
 			IEnumerable<string> lines = File.ReadAllLines( args[0] );
@@ -54,10 +46,9 @@ namespace EntityCreator {
 				)
 				.Select( x => (x[0], x[1]) );
 
-			Random random = new Random();
 			int[] primes = new[] {
-				NearestPrime( random.Next( 0b1000_0000, 0b1_0000_0000_0000_0000 ) ),
-				NearestPrime( random.Next( 0b1000_0000, 0b1_0000_0000_0000_0000 ) )
+				Primes.Random,
+				Primes.Random
 			};
 
 			string newCopy = $"new {Class}( { string.Join( ", ", Fields.Select( x => $"this.{x.FieldName}" ) ) } );";
@@ -66,15 +57,12 @@ namespace EntityCreator {
 
 			sb.AppendLine( 
 $@"{JoinWithNewLines( Usings )}
+
 namespace {Namespace} {{
 	public class {Class} : IEquatable<{Class}> {{
 {JoinWithNewLines( Fields.Select( x => $"		public readonly {x.DataType} {x.FieldName};" ) )}
 
-		public {Class} (
-{JoinWithNewLines( Fields.Select( x => $"			{x.DataType} {x.FieldName.ToLower()} = default," ) ).TrimEnd( ',' )}
-		) {{
-{JoinWithNewLines( Fields.Select( x => $"			this.{x.FieldName} = {x.FieldName.ToLower()};" ) )}
-		}}
+{DefaultCtor( Class, Fields )}
 
 		public {Class}( {Class} copy )
 			: this( {string.Join( ", ", Fields.Select( x => $"copy.{x.FieldName}" ) )} ) {{ }}
@@ -87,7 +75,7 @@ $@"		public {Class} With{x.FieldName}( {x.DataType} {x.FieldName.ToLower()} ) =>
 		)
 )}
 
-public override bool Equals( object obj ) {{
+		public override bool Equals( object obj ) {{
 			if( obj is {Class} that )
 				return this.Equals( that );
 

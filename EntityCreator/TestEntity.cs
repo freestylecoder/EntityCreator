@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
 namespace EntityCreator {
 	public class TestEntity : IEquatable<TestEntity> {
 		public readonly int Id;
@@ -23,7 +24,6 @@ namespace EntityCreator {
 		public TestEntity( TestEntity copy )
 			: this( copy.Id, copy.Descrption, copy.Updated, copy.ListOfInts ) { }
 
-
 		public TestEntity WithId( int id ) =>
 			new TestEntity( id, this.Descrption, this.Updated, this.ListOfInts );
 		public TestEntity WithDescrption( string descrption ) =>
@@ -41,9 +41,8 @@ namespace EntityCreator {
 		}
 
 		private int? _hash = null;
-		private int _bigPrime => throw new NotImplementedException();
-		private int _littlePrime => throw new NotImplementedException();
-
+		private const int _bigPrime = 14767;
+		private const int _littlePrime = 7841;
 		public override int GetHashCode() {
 			Func<object, int> SafeHashCode = ( obj ) =>
 				 obj is object ish

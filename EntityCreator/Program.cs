@@ -33,15 +33,7 @@ $@"		public {Class} (
 ) ).TrimEnd( ',' )}
 		) {{
 {JoinWithNewLines( 
-	Fields.Select( x => $"			this.{x.Name} = {GetCopyValue( x )};"
-	//	x.IsEnumerable
-	//		? (
-	//			x.IsValueType
-	//				? $"			this.{x.Name} = {x.Name.ToLower()}?.Select( x => x ) ?? Enumerable.Empty<{x.DataType}>();"
-	//				: $"			this.{x.Name} = {x.Name.ToLower()}?.Select( x => new {x.DataType}( x ) ) ?? Enumerable.Empty<{x.DataType}>();"
-	//		)
-	//		: $"			this.{x.Name} = {x.Name.ToLower()};"
-	)
+	Fields.Select( x => $"			this.{x.Name} = {GetCopyValue( x )};" )
 )}
 		}}";
 

@@ -1,20 +1,32 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SomeRandomLib {
 	public class Class1 : IEquatable<Class1> {
 		public readonly Class2 class2;
+		public readonly IEnumerable<int> Ordered;		// Ordered
+		public readonly IEnumerable<int> Disordered;
 
 		public Class1 (
-			Class2 class2 = default
+			Class2 class2 = default,
+			IEnumerable<int> ordered = default,
+			IEnumerable<int> disordered = default
 		) {
 			this.class2 = new Class2( class2 );
+			this.Ordered = this.Ordered = ordered?.Select( x => x ) ?? Enumerable.Empty<int>();
+			this.Disordered = this.Disordered = disordered?.Select( x => x ) ?? Enumerable.Empty<int>();
 		}
 
 		public Class1( Class1 copy )
-			: this( copy.class2 ) { }
+			: this( copy.class2, copy.Ordered, copy.Disordered ) { }
 
 		public Class1 Withclass2( Class2 class2 ) =>
-			new Class1( class2 );
+			new Class1( class2, this.Ordered, this.Disordered );
+		public Class1 WithOrdered( IEnumerable<int> ordered ) =>
+			new Class1( this.class2, ordered, this.Disordered );
+		public Class1 WithDisordered( IEnumerable<int> disordered ) =>
+			new Class1( this.class2, this.Ordered, disordered );
 
 		public override bool Equals( object obj ) {
 			if( obj is Class1 that )
@@ -24,8 +36,8 @@ namespace SomeRandomLib {
 		}
 
 		private int? _hash = null;
-		private const int _bigPrime = 37139;
-		private const int _littlePrime = 9533;
+		private const int _bigPrime = 29723;
+		private const int _littlePrime = 3191;
 		public override int GetHashCode() {
 			Func<object, int> SafeHashCode = ( obj ) =>
 				obj is object ish
@@ -37,6 +49,12 @@ namespace SomeRandomLib {
 					_hash = _bigPrime;
 
 					_hash = _hash * _littlePrime + SafeHashCode( this.class2 );
+
+					foreach( int x in Ordered )
+						_hash = _hash * _littlePrime + SafeHashCode( this.Ordered );
+
+					foreach( int x in Disordered.OrderBy( y => y ) )
+						_hash = _hash * _littlePrime + SafeHashCode( this.Disordered );
 				}
 			}
 
@@ -55,6 +73,14 @@ namespace SomeRandomLib {
 				|| (
 					this.GetHashCode() == that.GetHashCode()
 					&& this.class2 == that.class2
+					&& Enumerable.SequenceEqual(
+						this.Ordered,
+						that.Ordered
+					)
+					&& Enumerable.SequenceEqual(
+						this.Disordered.OrderBy( y => y ),
+						that.Disordered.OrderBy( y => y )
+					)
 				);
 		}
 

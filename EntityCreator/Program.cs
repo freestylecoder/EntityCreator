@@ -42,7 +42,7 @@ $@"		public {Class} (
 				if( fieldData.HasCopyCtor ) {
 					return $"{fieldData.Name.ToLower()}?.Select( x => new {fieldData.DataType}( {fieldData.Name.ToLower()} ) ) ?? Enumerable.Empty<{fieldData.DataType}>()";
 				} else if( fieldData.IsCloneable ) {
-					return $"{fieldData.Name.ToLower()}?.Select( x => {fieldData.Name.ToLower()}.Clone() as {fieldData.DataType} ) ?? Enumerable.Empty<{fieldData.DataType}>()";
+					return $"{fieldData.Name.ToLower()}?.Select( x => x.Clone() as {fieldData.DataType} ) ?? Enumerable.Empty<{fieldData.DataType}>()";
 				} else {
 					return $"this.{fieldData.Name} = {fieldData.Name.ToLower()}?.Select( x => x ) ?? Enumerable.Empty<{fieldData.DataType}>()";
 				}
@@ -247,7 +247,7 @@ $@"		public bool Equals( {Class} that ) {{
 				.Where( line => line.Contains( "public readonly " ) )
 				.Select( line =>
 					line.Split(
-						new[] { "public readonly ", " ", "\t", ";" },
+						new[] { "public readonly ", " ", "\t", ";", "//" },
 						StringSplitOptions.RemoveEmptyEntries
 					)
 				)

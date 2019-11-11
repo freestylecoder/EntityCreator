@@ -33,17 +33,37 @@ $@"		public {Class} (
 ) ).TrimEnd( ',' )}
 		) {{
 {JoinWithNewLines( 
-	Fields.Select( x =>
-		x.IsEnumerable
-			? (
-				x.IsValueType
-					? $"			this.{x.Name} = {x.Name.ToLower()}?.Select( x => x ) ?? Enumerable.Empty<{x.DataType}>();"
-					: $"			this.{x.Name} = {x.Name.ToLower()}?.Select( x => new {x.DataType}( x ) ) ?? Enumerable.Empty<{x.DataType}>();"
-			)
-			: $"			this.{x.Name} = {x.Name.ToLower()};"
+	Fields.Select( x => $"			this.{x.Name} = {GetCopyValue( x )};"
+	//	x.IsEnumerable
+	//		? (
+	//			x.IsValueType
+	//				? $"			this.{x.Name} = {x.Name.ToLower()}?.Select( x => x ) ?? Enumerable.Empty<{x.DataType}>();"
+	//				: $"			this.{x.Name} = {x.Name.ToLower()}?.Select( x => new {x.DataType}( x ) ) ?? Enumerable.Empty<{x.DataType}>();"
+	//		)
+	//		: $"			this.{x.Name} = {x.Name.ToLower()};"
 	)
 )}
 		}}";
+
+		private static string GetCopyValue( FieldData fieldData ) {
+			if( fieldData.IsEnumerable ) {
+				if( fieldData.HasCopyCtor ) {
+					return $"{fieldData.Name.ToLower()}?.Select( x => new {fieldData.DataType}( {fieldData.Name.ToLower()} ) ) ?? Enumerable.Empty<{fieldData.DataType}>()";
+				} else if( fieldData.IsCloneable ) {
+					return $"{fieldData.Name.ToLower()}?.Select( x => {fieldData.Name.ToLower()}.Clone() as {fieldData.DataType} ) ?? Enumerable.Empty<{fieldData.DataType}>()";
+				} else {
+					return $"this.{fieldData.Name} = {fieldData.Name.ToLower()}?.Select( x => x ) ?? Enumerable.Empty<{fieldData.DataType}>()";
+				}
+			} else {
+				if( fieldData.HasCopyCtor ) {
+					return $"new {fieldData.DataType}( {fieldData.Name.ToLower()} )";
+				} else if( fieldData.IsCloneable ) {
+					return $"{fieldData.Name.ToLower()}.Clone() as {fieldData.DataType}";
+				} else {
+					return fieldData.Name.ToLower();
+				}
+			}
+		}
 
 		private static string CopyCtor( string Class, IEnumerable<FieldData> Fields ) =>
 $@"		public {Class}( {Class} copy )
@@ -118,14 +138,20 @@ $@"		public bool Equals( {Class} that ) {{
 				);
 		}}";
 
-		private static object CreateTargetObject( string sourceCode ) {
+		private static object CreateTargetObject( string sourceCode, IEnumerable<(string path, string name)> assemblies ) {
 			Microsoft.CSharp.CSharpCodeProvider provider = new Microsoft.CSharp.CSharpCodeProvider();
 
 			System.CodeDom.Compiler.CompilerParameters parameters = new System.CodeDom.Compiler.CompilerParameters(
-				Assembly.GetExecutingAssembly().GetReferencedAssemblies().Select( x => x.Name + ".dll" ).ToArray()
+				Assembly
+					.GetExecutingAssembly()
+					.GetReferencedAssemblies()
+					.Select( x => x.Name + ".dll" )
+					.Concat( assemblies.Select( t => t.name ) )
+					.ToArray()
 			) {
 				GenerateExecutable = false,
-				GenerateInMemory = true
+				GenerateInMemory = true,
+				CompilerOptions = $"-lib:{string.Join( ",", assemblies.Select( t => t.path ) )}"
 			};
 
 			System.CodeDom.Compiler.CompilerResults results = 
@@ -141,8 +167,72 @@ $@"		public bool Equals( {Class} that ) {{
 				: null;
 		}
 
+		private static FieldData GetFieldData( FieldInfo f, string dataType, Assembly assembly = default ) {
+			Type type = null;
+			try {
+				type = f.FieldType;
+			} catch {
+				if( null != assembly ) {
+					type = assembly.GetTypes()
+						.Where( t => t.FullName.EndsWith( $".{dataType}" ) )
+						.FirstOrDefault();
+				}
+			}
+
+			bool isEnumerable, isValueType, isCloneable, hasCopyCtor;
+			if( !type.FullName.Equals( "System.String" )
+				&& type.GetInterfaces().Contains( typeof( IEnumerable ) )
+			) {
+				isEnumerable = true;
+
+				Type blah = type.GenericTypeArguments.First();
+				isValueType = blah.IsValueType;
+				isCloneable = blah.GetInterfaces().Contains( typeof( ICloneable ) );
+				hasCopyCtor = null != blah.GetConstructor(
+					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+					null,
+					new[] { blah },
+					null
+				);
+			} else {
+				isEnumerable = false;
+				isValueType = type.IsValueType;
+				isCloneable = type.GetInterfaces().Contains( typeof( ICloneable ) );
+				hasCopyCtor = null != type.GetConstructor(
+					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+					null,
+					new[] { type },
+					null
+				);
+			}
+
+			return new FieldData(
+					datatype: isEnumerable
+						? dataType.Substring( 0, dataType.Length - 1 ).Remove( 0, "IEnumerable<".Length )
+						: dataType,
+					name: f.Name,
+					isenumerable: isEnumerable,
+					isvaluetype: isValueType,
+					iscloneable: isCloneable,
+					hascopyctor: hasCopyCtor
+				);
+		}
+
 		static void Main( string[] args ) {
 			IEnumerable<string> lines = File.ReadAllLines( args[0] );
+
+			IEnumerable<Assembly> LoadedAssemblies =
+				args
+					.Skip( 1 )
+					.Select( s => Assembly.LoadFile( s ) );
+
+			IEnumerable<(string path, string name)> assemblies =
+				args.Length > 1
+				? args
+					.Skip( 1 )
+					.Select( s => new FileInfo( s ) )
+					.Select( fi => (fi.DirectoryName, fi.Name) )
+				: Enumerable.Empty<(string, string)>();
 
 			IEnumerable<string> Usings = lines
 				.Where( line => line.StartsWith( "using " ) );
@@ -178,31 +268,20 @@ namespace {Namespace} {{
 	public class {Class} {{
 {PrintFields( Fields0 )}
 	}}
-}}"
+}}",
+				assemblies
 			);
 
 			IEnumerable<FieldData> Fields = target.GetType()
 				.GetFields()
-				.Select( f => {
-					string dt = Fields0.Where( x => x.Name == f.Name ).Single().DataType;
-
-					return !f.FieldType.FullName.Equals( "System.String" )
-					&& f.FieldType.GetInterfaces().Contains( typeof( IEnumerable ) )
-						? new FieldData(
-							datatype: dt
-								.Substring( 0, dt.Length - 1 )
-								.Remove( 0, "IEnumerable<".Length ),
-							name: f.Name,
-							isenumerable: true,
-							isvaluetype: f.FieldType.GenericTypeArguments.First().IsValueType
-						)
-						: new FieldData(
-							datatype: dt,
-							name: f.Name,
-							isenumerable: false,
-							isvaluetype: f.FieldType.IsValueType
-						);
-					}
+				.Select( f => LoadedAssemblies
+					.Select( a => GetFieldData(
+						f,
+						Fields0.Where( x => x.Name == f.Name ).Single().DataType,
+						a
+					) )
+					.Where( o => null != o )
+					.First()
 				);
 
 			File.WriteAllText(

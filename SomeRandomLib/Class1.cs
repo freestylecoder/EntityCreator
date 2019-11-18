@@ -5,7 +5,7 @@ using System.Linq;
 namespace SomeRandomLib {
 	public class Class1 : IEquatable<Class1> {
 		public readonly Class2 class2;
-		public readonly IEnumerable<int> Ordered;
+		public readonly IEnumerable<int> Ordered;	// Ordered
 		public readonly IEnumerable<int> Disordered;
 
 		public Class1 (
@@ -36,8 +36,8 @@ namespace SomeRandomLib {
 		}
 
 		private int? _hash = null;
-		private const int _bigPrime = 25013;
-		private const int _littlePrime = 1777;
+		private const int _bigPrime = 47441;
+		private const int _littlePrime = 6793;
 		public override int GetHashCode() {
 			Func<object, int> SafeHashCode = ( obj ) =>
 				obj is object ish
@@ -53,7 +53,7 @@ namespace SomeRandomLib {
 					foreach( int x in Ordered )
 						_hash = _hash * _littlePrime + SafeHashCode( this.Ordered );
 
-					foreach( int x in Disordered )
+					foreach( int x in Disordered.OrderBy( y => y ) )
 						_hash = _hash * _littlePrime + SafeHashCode( this.Disordered );
 				}
 			}
@@ -78,8 +78,8 @@ namespace SomeRandomLib {
 						that.Ordered
 					)
 					&& Enumerable.SequenceEqual(
-						this.Disordered,
-						that.Disordered
+						this.Disordered.OrderBy( y => y ),
+						that.Disordered.OrderBy( y => y )
 					)
 				);
 		}

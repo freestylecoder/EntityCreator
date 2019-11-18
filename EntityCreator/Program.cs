@@ -19,8 +19,8 @@ namespace EntityCreator {
 		private static string PrintFields( IEnumerable<FieldData> Fields ) =>
 			JoinWithNewLines( Fields.Select( x =>
 				x.IsEnumerable
-				? $"		public readonly IEnumerable<{x.DataType}> {x.Name};"
-				: $"		public readonly {x.DataType} {x.Name};"
+				? $"		public readonly IEnumerable<{x.DataType}> {x.Name};{(x.Parameters.Any() ? $"	// {string.Join( " ", x.Parameters )}" : string.Empty)}"
+				: $"		public readonly {x.DataType} {x.Name};{( x.Parameters.Any() ? $"	// {string.Join( " ", x.Parameters )}" : string.Empty )}"
 			)
 		);
 
@@ -94,7 +94,7 @@ $@"		private int? _hash = null;
 		.Select( x =>
 			x.IsEnumerable
 			? $@"
-					foreach( {x.DataType} x in {x.Name} )
+					foreach( {x.DataType} x in {x.Name}{(x.Parameters.Contains("Ordered") ? string.Empty : $".OrderBy( y => y )" )} )
 						_hash = _hash * _littlePrime + SafeHashCode( this.{x.Name} );"
 			: $"					_hash = _hash * _littlePrime + SafeHashCode( this.{x.Name} );"
 		)
@@ -121,8 +121,8 @@ $@"		public bool Equals( {Class} that ) {{
 		.Select( x =>
 			x.IsEnumerable
 			? $@"					&& Enumerable.SequenceEqual(
-						this.{x.Name},
-						that.{x.Name}
+						this.{x.Name}{( x.Parameters.Contains( "Ordered" ) ? string.Empty : $".OrderBy( y => y )" )},
+						that.{x.Name}{( x.Parameters.Contains( "Ordered" ) ? string.Empty : $".OrderBy( y => y )" )}
 					)"
 			: $"					&& this.{x.Name} == that.{x.Name}" 
 		)
@@ -172,6 +172,9 @@ $@"		public bool Equals( {Class} that ) {{
 						.Where( t => t.FullName.EndsWith( $".{dataType}" ) )
 						.FirstOrDefault();
 				}
+
+				if( null == type )
+					return null;
 			}
 
 			bool isEnumerable, isValueType, isCloneable, hasCopyCtor;
@@ -254,7 +257,7 @@ $@"		public bool Equals( {Class} that ) {{
 						StringSplitOptions.RemoveEmptyEntries
 					)
 				)
-				.Select( x => new FieldData( x[0], x[1] ) );
+				.Select( x => new FieldData( x[0], x[1], parameters: x.Skip( 2 ) ) );
 
 			object target = CreateTargetObject(
 $@"{PrintUsings( Usings )}
@@ -270,12 +273,16 @@ namespace {Namespace} {{
 			IEnumerable<FieldData> Fields = target.GetType()
 				.GetFields()
 				.Select( f => LoadedAssemblies
-					.Prepend( Assembly.GetExecutingAssembly() )
-					.Select( a => GetFieldData(
-						f,
-						Fields0.Where( x => x.Name == f.Name ).Single().DataType,
-						a
-					) )
+					.Prepend( null ) //Assembly.GetExecutingAssembly() )
+					.Select( a => {
+						FieldData fieldData = Fields0.Where( x => x.Name == f.Name ).Single();
+						return GetFieldData(
+							f,
+							fieldData.DataType,
+							a
+						)
+						?.WithParameters( fieldData.Parameters );
+					} )
 					.Where( o => null != o )
 					.First()
 				);

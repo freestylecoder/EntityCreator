@@ -68,8 +68,8 @@ namespace SomeRandomLib {
 		}
 
 		private int? _hash = null;
-		private const int _bigPrime = 44641;
-		private const int _littlePrime = 5431;
+		private const int _bigPrime = 29437;
+		private const int _littlePrime = 8317;
 		public override int GetHashCode() {
 			Func<object, int> SafeHashCode = ( obj ) =>
 				obj is object ish

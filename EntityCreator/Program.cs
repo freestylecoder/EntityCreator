@@ -143,7 +143,10 @@ $@"		public bool Equals( {Class} that ) {{
 			) {
 				GenerateExecutable = false,
 				GenerateInMemory = true,
-				CompilerOptions = $"-lib:{string.Join( ",", assemblies.Select( t => t.path ) )}"
+				CompilerOptions =
+					assemblies.Any()
+					? $"-lib:{string.Join( ",", assemblies.Select( t => t.path ) )}"
+					: string.Empty
 			};
 
 			System.CodeDom.Compiler.CompilerResults results = 
@@ -267,6 +270,7 @@ namespace {Namespace} {{
 			IEnumerable<FieldData> Fields = target.GetType()
 				.GetFields()
 				.Select( f => LoadedAssemblies
+					.Prepend( Assembly.GetExecutingAssembly() )
 					.Select( a => GetFieldData(
 						f,
 						Fields0.Where( x => x.Name == f.Name ).Single().DataType,

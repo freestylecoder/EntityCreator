@@ -68,7 +68,7 @@ $@"		public {Class}( {Class} copy )
 				Fields
 					.Select( x =>
 $@"		public {Class} With{x.Name}( {(x.IsEnumerable ? $"IEnumerable<{x.DataType}>" : x.DataType)} {x.Name.ToLower()} ) =>
-			{newCopy.Replace( $"this.{x.Name}", x.Name.ToLower() )}"
+			{newCopy.Replace( $"this.{x.Name},", $"{x.Name.ToLower()}," ).Replace( $"this.{x.Name} ", $"{x.Name.ToLower()} " )}"
 					)
 			);
 		}
@@ -177,32 +177,30 @@ $@"		public bool Equals( {Class} that ) {{
 					return null;
 			}
 
-			bool isEnumerable, isValueType, isCloneable, hasCopyCtor;
-			if( !type.FullName.Equals( "System.String" )
-				&& type.GetInterfaces().Contains( typeof( IEnumerable ) )
-			) {
-				isEnumerable = true;
+			Func<Type, (bool, bool, bool)> GetTypeInformation = ( t ) =>
+				t.FullName.Equals( "System.String" )
+					? ( false, false, false )
+					: (
+						t.IsValueType,
+						t.GetInterfaces().Contains( typeof( ICloneable ) ),
+						null != t.GetConstructor(
+							BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+							null,
+							new[] { t },
+							null
+						)
+					);
 
-				Type blah = type.GenericTypeArguments.First();
-				isValueType = blah.IsValueType;
-				isCloneable = blah.GetInterfaces().Contains( typeof( ICloneable ) );
-				hasCopyCtor = null != blah.GetConstructor(
-					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-					null,
-					new[] { blah },
-					null
-				);
-			} else {
-				isEnumerable = false;
-				isValueType = type.IsValueType;
-				isCloneable = type.GetInterfaces().Contains( typeof( ICloneable ) );
-				hasCopyCtor = null != type.GetConstructor(
-					BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-					null,
-					new[] { type },
-					null
-				);
-			}
+			bool isEnumerable = 
+				!type.FullName.Equals( "System.String" )
+				&& type.GetInterfaces().Contains( typeof( IEnumerable ) );
+
+			bool isValueType, isCloneable, hasCopyCtor;
+			(isValueType, isCloneable, hasCopyCtor) = GetTypeInformation(
+				isEnumerable
+					? type.GenericTypeArguments.First()
+					: type
+			);
 
 			return new FieldData(
 					datatype: isEnumerable

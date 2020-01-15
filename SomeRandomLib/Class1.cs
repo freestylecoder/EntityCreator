@@ -9,34 +9,49 @@ namespace SomeRandomLib {
 		public readonly IEnumerable<int> Ordered;	// Ordered
 		public readonly IEnumerable<int> Disordered;
 		public readonly IEnumerable<string> MyStrings;
+		public readonly IEnumerable<Class2> MyClasses;
+		public readonly IEnumerable<Tuple<int,string>> Test1;
+		public readonly (int,string) Test2;
 
 		public Class1 (
 			Class2 class2 = default,
 			string mystring = default,
 			IEnumerable<int> ordered = default,
 			IEnumerable<int> disordered = default,
-			IEnumerable<string> mystrings = default
+			IEnumerable<string> mystrings = default,
+			IEnumerable<Class2> myclasses = default,
+			IEnumerable<Tuple<int,string>> test1 = default,
+			(int,string) test2 = default
 		) {
 			this.class2 = new Class2( class2 );
 			this.MyString = mystring;
 			this.Ordered = this.Ordered = ordered?.Select( x => x ) ?? Enumerable.Empty<int>();
 			this.Disordered = this.Disordered = disordered?.Select( x => x ) ?? Enumerable.Empty<int>();
 			this.MyStrings = this.MyStrings = mystrings?.Select( x => x ) ?? Enumerable.Empty<string>();
+			this.MyClasses = myclasses?.Select( x => new Class2( x ) ) ?? Enumerable.Empty<Class2>();
+			this.Test1 = this.Test1 = test1?.Select( x => x ) ?? Enumerable.Empty<Tuple<int,string>>();
+			this.Test2 = test2;
 		}
 
 		public Class1( Class1 copy )
-			: this( copy.class2, copy.MyString, copy.Ordered, copy.Disordered, copy.MyStrings ) { }
+			: this( copy.class2, copy.MyString, copy.Ordered, copy.Disordered, copy.MyStrings, copy.MyClasses, copy.Test1, copy.Test2 ) { }
 
 		public Class1 Withclass2( Class2 class2 ) =>
-			new Class1( class2, this.MyString, this.Ordered, this.Disordered, this.MyStrings );
+			new Class1( class2, this.MyString, this.Ordered, this.Disordered, this.MyStrings, this.MyClasses, this.Test1, this.Test2 );
 		public Class1 WithMyString( string mystring ) =>
-			new Class1( this.class2, mystring, this.Ordered, this.Disordered, this.MyStrings );
+			new Class1( this.class2, mystring, this.Ordered, this.Disordered, this.MyStrings, this.MyClasses, this.Test1, this.Test2 );
 		public Class1 WithOrdered( IEnumerable<int> ordered ) =>
-			new Class1( this.class2, this.MyString, ordered, this.Disordered, this.MyStrings );
+			new Class1( this.class2, this.MyString, ordered, this.Disordered, this.MyStrings, this.MyClasses, this.Test1, this.Test2 );
 		public Class1 WithDisordered( IEnumerable<int> disordered ) =>
-			new Class1( this.class2, this.MyString, this.Ordered, disordered, this.MyStrings );
+			new Class1( this.class2, this.MyString, this.Ordered, disordered, this.MyStrings, this.MyClasses, this.Test1, this.Test2 );
 		public Class1 WithMyStrings( IEnumerable<string> mystrings ) =>
-			new Class1( this.class2, this.MyString, this.Ordered, this.Disordered, mystrings );
+			new Class1( this.class2, this.MyString, this.Ordered, this.Disordered, mystrings, this.MyClasses, this.Test1, this.Test2 );
+		public Class1 WithMyClasses( IEnumerable<Class2> myclasses ) =>
+			new Class1( this.class2, this.MyString, this.Ordered, this.Disordered, this.MyStrings, myclasses, this.Test1, this.Test2 );
+		public Class1 WithTest1( IEnumerable<Tuple<int,string>> test1 ) =>
+			new Class1( this.class2, this.MyString, this.Ordered, this.Disordered, this.MyStrings, this.MyClasses, test1, this.Test2 );
+		public Class1 WithTest2( (int,string) test2 ) =>
+			new Class1( this.class2, this.MyString, this.Ordered, this.Disordered, this.MyStrings, this.MyClasses, this.Test1, test2 );
 
 		public override bool Equals( object obj ) {
 			if( obj is Class1 that )
@@ -46,8 +61,8 @@ namespace SomeRandomLib {
 		}
 
 		private int? _hash = null;
-		private const int _bigPrime = 23911;
-		private const int _littlePrime = 2719;
+		private const int _bigPrime = 23893;
+		private const int _littlePrime = 3361;
 		public override int GetHashCode() {
 			Func<object, int> SafeHashCode = ( obj ) =>
 				obj is object ish
@@ -60,15 +75,22 @@ namespace SomeRandomLib {
 
 					_hash = _hash * _littlePrime + SafeHashCode( this.class2 );
 					_hash = _hash * _littlePrime + SafeHashCode( this.MyString );
+					_hash = _hash * _littlePrime + SafeHashCode( this.Test2 );
 
 					foreach( int x in Ordered )
-						_hash = _hash * _littlePrime + SafeHashCode( this.Ordered );
+						_hash = _hash * _littlePrime + SafeHashCode( x );
 
 					foreach( int x in Disordered.OrderBy( y => y ) )
-						_hash = _hash * _littlePrime + SafeHashCode( this.Disordered );
+						_hash = _hash * _littlePrime + SafeHashCode( x );
 
 					foreach( string x in MyStrings.OrderBy( y => y ) )
-						_hash = _hash * _littlePrime + SafeHashCode( this.MyStrings );
+						_hash = _hash * _littlePrime + SafeHashCode( x );
+
+					foreach( Class2 x in MyClasses.OrderBy( y => y ) )
+						_hash = _hash * _littlePrime + SafeHashCode( x );
+
+					foreach( Tuple<int,string> x in Test1.OrderBy( y => y ) )
+						_hash = _hash * _littlePrime + SafeHashCode( x );
 				}
 			}
 
@@ -88,6 +110,7 @@ namespace SomeRandomLib {
 					this.GetHashCode() == that.GetHashCode()
 					&& this.class2 == that.class2
 					&& this.MyString == that.MyString
+					&& this.Test2 == that.Test2
 					&& Enumerable.SequenceEqual(
 						this.Ordered,
 						that.Ordered
@@ -99,6 +122,14 @@ namespace SomeRandomLib {
 					&& Enumerable.SequenceEqual(
 						this.MyStrings.OrderBy( y => y ),
 						that.MyStrings.OrderBy( y => y )
+					)
+					&& Enumerable.SequenceEqual(
+						this.MyClasses.OrderBy( y => y ),
+						that.MyClasses.OrderBy( y => y )
+					)
+					&& Enumerable.SequenceEqual(
+						this.Test1.OrderBy( y => y ),
+						that.Test1.OrderBy( y => y )
 					)
 				);
 		}

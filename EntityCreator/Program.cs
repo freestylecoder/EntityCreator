@@ -4,9 +4,30 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace EntityCreator {
 	public class Program {
+		private static readonly IDictionary<string, Type> BuildInTypes = new Dictionary<string,Type> {
+				{ "bool",       typeof( bool )      },
+				{ "byte",       typeof( byte )      },
+				{ "sbyte",      typeof( sbyte )     },
+				{ "char",       typeof( char )      },
+				{ "decimal",    typeof( decimal )   },
+				{ "double",     typeof( double )    },
+				{ "float",      typeof( float )     },
+				{ "int",        typeof( int )       },
+				{ "uint",       typeof( uint )      },
+				{ "long",       typeof( long )      },
+				{ "ulong",      typeof( ulong )     },
+				{ "object",     typeof( object )    },
+				{ "short",      typeof( short )     },
+				{ "ushort",     typeof( ushort )    },
+				{ "string",     typeof( string )    }
+			};
+		
+		private static IEnumerable<IDictionary<string,Type>> KnownTypesList;
+
 		private static string JoinWithNewLines( IEnumerable<string> lines ) =>
 			string.Join(
 				Environment.NewLine,
@@ -19,7 +40,7 @@ namespace EntityCreator {
 		private static string PrintFields( IEnumerable<FieldData> Fields ) =>
 			JoinWithNewLines( Fields.Select( x =>
 				x.IsEnumerable
-				? $"		public readonly IEnumerable<{x.DataType}> {x.Name};{(x.Parameters.Any() ? $"	// {string.Join( " ", x.Parameters )}" : string.Empty)}"
+				? $"		public readonly IEnumerable<{x.DataType}> {x.Name};{( x.Parameters.Any() ? $"	// {string.Join( " ", x.Parameters )}" : string.Empty )}"
 				: $"		public readonly {x.DataType} {x.Name};{( x.Parameters.Any() ? $"	// {string.Join( " ", x.Parameters )}" : string.Empty )}"
 			)
 		);
@@ -32,7 +53,7 @@ $@"		public {Class} (
 	: $"			{x.DataType} {x.Name.ToLower()} = default,"
 ) ).TrimEnd( ',' )}
 		) {{
-{JoinWithNewLines( 
+{JoinWithNewLines(
 	Fields.Select( x => $"			this.{x.Name} = {GetCopyValue( x )};" )
 )}
 		}}";
@@ -40,7 +61,7 @@ $@"		public {Class} (
 		private static string GetCopyValue( FieldData fieldData ) {
 			if( fieldData.IsEnumerable ) {
 				if( fieldData.HasCopyCtor ) {
-					return $"{fieldData.Name.ToLower()}?.Select( x => new {fieldData.DataType}( {fieldData.Name.ToLower()} ) ) ?? Enumerable.Empty<{fieldData.DataType}>()";
+					return $"{fieldData.Name.ToLower()}?.Select( x => new {fieldData.DataType}( x ) ) ?? Enumerable.Empty<{fieldData.DataType}>()";
 				} else if( fieldData.IsCloneable ) {
 					return $"{fieldData.Name.ToLower()}?.Select( x => x.Clone() as {fieldData.DataType} ) ?? Enumerable.Empty<{fieldData.DataType}>()";
 				} else {
@@ -59,7 +80,7 @@ $@"		public {Class} (
 
 		private static string CopyCtor( string Class, IEnumerable<FieldData> Fields ) =>
 $@"		public {Class}( {Class} copy )
-			: this( {string.Join( ", ", Fields.Select(x => $"copy.{x.Name}" ) )} ) {{ }}";
+			: this( {string.Join( ", ", Fields.Select( x => $"copy.{x.Name}" ) )} ) {{ }}";
 
 		private static string Withers( string Class, IEnumerable<FieldData> Fields ) {
 			string newCopy = $"new {Class}( { string.Join( ", ", Fields.Select( x => $"this.{x.Name}" ) ) } );";
@@ -67,7 +88,7 @@ $@"		public {Class}( {Class} copy )
 			return JoinWithNewLines(
 				Fields
 					.Select( x =>
-$@"		public {Class} With{x.Name}( {(x.IsEnumerable ? $"IEnumerable<{x.DataType}>" : x.DataType)} {x.Name.ToLower()} ) =>
+$@"		public {Class} With{x.Name}( {( x.IsEnumerable ? $"IEnumerable<{x.DataType}>" : x.DataType )} {x.Name.ToLower()} ) =>
 			{newCopy.Replace( $"this.{x.Name},", $"{x.Name.ToLower()}," ).Replace( $"this.{x.Name} ", $"{x.Name.ToLower()} " )}"
 					)
 			);
@@ -94,8 +115,8 @@ $@"		private int? _hash = null;
 		.Select( x =>
 			x.IsEnumerable
 			? $@"
-					foreach( {x.DataType} x in {x.Name}{(x.Parameters.Contains("Ordered") ? string.Empty : $".OrderBy( y => y )" )} )
-						_hash = _hash * _littlePrime + SafeHashCode( this.{x.Name} );"
+					foreach( {x.DataType} x in {x.Name}{( x.Parameters.Contains( "Ordered" ) ? string.Empty : $".OrderBy( y => y )" )} )
+						_hash = _hash * _littlePrime + SafeHashCode( x );"
 			: $"					_hash = _hash * _littlePrime + SafeHashCode( this.{x.Name} );"
 		)
 )}
@@ -124,62 +145,16 @@ $@"		public bool Equals( {Class} that ) {{
 						this.{x.Name}{( x.Parameters.Contains( "Ordered" ) ? string.Empty : $".OrderBy( y => y )" )},
 						that.{x.Name}{( x.Parameters.Contains( "Ordered" ) ? string.Empty : $".OrderBy( y => y )" )}
 					)"
-			: $"					&& this.{x.Name} == that.{x.Name}" 
+			: $"					&& this.{x.Name} == that.{x.Name}"
 		)
 )}
 				);
 		}}";
 
-		private static object CreateTargetObject( string sourceCode, IEnumerable<(string path, string name)> assemblies ) {
-			Microsoft.CSharp.CSharpCodeProvider provider = new Microsoft.CSharp.CSharpCodeProvider();
-
-			System.CodeDom.Compiler.CompilerParameters parameters = new System.CodeDom.Compiler.CompilerParameters(
-				Assembly
-					.GetExecutingAssembly()
-					.GetReferencedAssemblies()
-					.Select( x => x.Name + ".dll" )
-					.Concat( assemblies.Select( t => t.name ) )
-					.ToArray()
-			) {
-				GenerateExecutable = false,
-				GenerateInMemory = true,
-				CompilerOptions =
-					assemblies.Any()
-					? $"-lib:{string.Join( ",", assemblies.Select( t => t.path ) )}"
-					: string.Empty
-			};
-
-			System.CodeDom.Compiler.CompilerResults results = 
-				provider.CompileAssemblyFromSource( parameters, sourceCode );
-
-			return results.Errors.Count == 0
-				? results
-					.CompiledAssembly
-					.GetExportedTypes()
-					.First()
-					.GetConstructor( Type.EmptyTypes )
-					.Invoke( Type.EmptyTypes )
-				: null;
-		}
-
-		private static FieldData GetFieldData( FieldInfo f, string dataType, Assembly assembly = default ) {
-			Type type = null;
-			try {
-				type = f.FieldType;
-			} catch {
-				if( null != assembly ) {
-					type = assembly.GetTypes()
-						.Where( t => t.FullName.EndsWith( $".{dataType}" ) )
-						.FirstOrDefault();
-				}
-
-				if( null == type )
-					return null;
-			}
-
+		private static FieldData GetFieldData( FieldData fieldData ) {
 			Func<Type, (bool, bool, bool)> GetTypeInformation = ( t ) =>
 				t.FullName.Equals( "System.String" )
-					? ( false, false, false )
+					? (false, false, false)
 					: (
 						t.IsValueType,
 						t.GetInterfaces().Contains( typeof( ICloneable ) ),
@@ -191,7 +166,14 @@ $@"		public bool Equals( {Class} that ) {{
 						)
 					);
 
-			bool isEnumerable = 
+			Type type = Type.GetType(
+				Parser( fieldData.DataType ).ToString(),
+				null,
+				TypeResolver,
+				false
+			);
+
+			bool isEnumerable =
 				!type.FullName.Equals( "System.String" )
 				&& type.GetInterfaces().Contains( typeof( IEnumerable ) );
 
@@ -204,31 +186,97 @@ $@"		public bool Equals( {Class} that ) {{
 
 			return new FieldData(
 					datatype: isEnumerable
-						? dataType.Substring( 0, dataType.Length - 1 ).Remove( 0, "IEnumerable<".Length )
-						: dataType,
-					name: f.Name,
+						? Regex.Match( fieldData.DataType, "\\<(.*R?)\\>" ).Groups[1].Value
+						: fieldData.DataType,
+					name: fieldData.Name,
 					isenumerable: isEnumerable,
 					isvaluetype: isValueType,
 					iscloneable: isCloneable,
-					hascopyctor: hasCopyCtor
+					hascopyctor: hasCopyCtor,
+					parameters: fieldData.Parameters
 				);
 		}
 
-		static void Main( string[] args ) {
+		private static Type TypeResolver( Assembly assembly, string typeName, bool caseSensitive ) =>
+				BuildInTypes.ContainsKey( typeName )
+					? BuildInTypes[typeName]
+					: KnownTypesList
+						.SelectMany( d => d.Values )
+						.Where( t =>
+							t.Name
+								.Equals(
+									typeName,
+									caseSensitive
+										? StringComparison.InvariantCulture
+										: StringComparison.InvariantCultureIgnoreCase
+								)
+						)
+						.FirstOrDefault();
+
+		private static StringTree Parser( string typeName ) {
+			typeName = typeName
+				.Replace( "(", "ValueTuple<" )
+				.Replace( ")", ">" )
+				.Trim();
+
+			if( !typeName.Contains( '<' ) ) {
+				return new StringTree( typeName.Split( ' ' )[0] );
+			}
+
+			string genericTypeName = typeName.Substring( 0, typeName.IndexOf( '<' ) );
+			string innerType = Regex.Match( typeName, "\\<(.*R?)\\>" ).Groups[1].Value;
+
+			int nestingLevel = 0;
+			int[] nesting = new int[innerType.Length];
+			for( int index = 0; index < nesting.Length; ++index ) {
+				switch( innerType[index] ) {
+					case ',':
+						nesting[index] = 0 == nestingLevel ? -1 : nestingLevel;
+						break;
+
+					case '<':
+						nestingLevel++;
+						goto default;
+
+					case '>':
+						nestingLevel--;
+						goto default;
+
+					default:
+						nesting[index] = nestingLevel;
+						break;
+				}
+			}
+
+			if( nesting.Any( i => i == -1 ) ) {
+				IEnumerable<int> indexes = nesting
+					.Select( ( val, ind ) => -1 == val ? ind : -1 )
+					.Where( val => -1 != val );
+
+				foreach( int index in indexes ) {
+					char[] temp = innerType.ToCharArray();
+					temp[index] = '\0';
+					innerType = new string( temp );
+
+				}
+
+				IEnumerable<StringTree> x = innerType.Split( new[] { '\0' } ).Select( s => Parser( s ) );
+				return new StringTree( genericTypeName, x );
+			} else {
+				return new StringTree( genericTypeName, new[] { Parser( innerType ) } );
+			}
+		}
+
+		private static void Main( string[] args ) {
 			IEnumerable<string> lines = File.ReadAllLines( args[0] );
 
-			IEnumerable<Assembly> LoadedAssemblies =
-				args
-					.Skip( 1 )
-					.Select( s => Assembly.LoadFile( s ) );
-
-			IEnumerable<(string path, string name)> assemblies =
-				args.Length > 1
-				? args
-					.Skip( 1 )
-					.Select( s => new FileInfo( s ) )
-					.Select( fi => (fi.DirectoryName, fi.Name) )
-				: Enumerable.Empty<(string, string)>();
+			KnownTypesList = args
+				.Skip( 1 )
+				.Select( s => Assembly.LoadFile( s ) )
+				.Concat( AppDomain.CurrentDomain.GetAssemblies() )
+				.Select( a => a.GetTypes() )
+				.Select( lot => lot.ToDictionary( t => t.FullName ) )
+				.Prepend( BuildInTypes );
 
 			IEnumerable<string> Usings = lines
 				.Where( line => line.StartsWith( "using " ) );
@@ -247,7 +295,7 @@ $@"		public bool Equals( {Class} that ) {{
 				.Split()
 				[0];
 
-			IEnumerable<FieldData> Fields0 = lines
+			IEnumerable<FieldData> Fields = lines
 				.Where( line => line.Contains( "public readonly " ) )
 				.Select( line =>
 					line.Split(
@@ -255,35 +303,7 @@ $@"		public bool Equals( {Class} that ) {{
 						StringSplitOptions.RemoveEmptyEntries
 					)
 				)
-				.Select( x => new FieldData( x[0], x[1], parameters: x.Skip( 2 ) ) );
-
-			object target = CreateTargetObject(
-$@"{PrintUsings( Usings )}
-
-namespace {Namespace} {{
-	public class {Class} {{
-{PrintFields( Fields0 )}
-	}}
-}}",
-				assemblies
-			);
-
-			IEnumerable<FieldData> Fields = target.GetType()
-				.GetFields()
-				.Select( f => LoadedAssemblies
-					.Prepend( null ) //Assembly.GetExecutingAssembly() )
-					.Select( a => {
-						FieldData fieldData = Fields0.Where( x => x.Name == f.Name ).Single();
-						return GetFieldData(
-							f,
-							fieldData.DataType,
-							a
-						)
-						?.WithParameters( fieldData.Parameters );
-					} )
-					.Where( o => null != o )
-					.First()
-				);
+				.Select( x => GetFieldData( new FieldData( x[0], x[1], parameters: x.Skip( 2 ) ) ) );
 
 			File.WriteAllText(
 				args[0],

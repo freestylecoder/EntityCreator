@@ -273,7 +273,8 @@ $@"		public bool Equals( {Class} that ) {{
 			KnownTypesList = args
 				.Skip( 1 )
 				.Select( s => Assembly.LoadFile( s ) )
-				.Concat( AppDomain.CurrentDomain.GetAssemblies() )
+				.SelectMany( a => a.GetReferencedAssemblies().Select( an => Assembly.Load( an ) ).Prepend( a ) )
+				.Distinct()
 				.Select( a => a.GetTypes() )
 				.Select( lot => lot.ToDictionary( t => t.FullName ) )
 				.Prepend( BuildInTypes );
@@ -304,6 +305,10 @@ $@"		public bool Equals( {Class} that ) {{
 					)
 				)
 				.Select( x => GetFieldData( new FieldData( x[0], x[1], parameters: x.Skip( 2 ) ) ) );
+
+			if( Fields.Any( fd => fd.IsEnumerable ) )
+				if( !Usings.Contains( "using System.Linq;" ) )
+					Usings = Usings.Concat( new[] { "using System.Linq;" } );
 
 			File.WriteAllText(
 				args[0],

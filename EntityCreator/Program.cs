@@ -268,6 +268,20 @@ $@"		public bool Equals( {Class} that ) {{
 		}
 
 		private static int Main( string[] args ) {
+			if( !args.Any() ) {
+				Console.WriteLine();
+				Console.WriteLine( "EntityCreator.exe" );
+				Console.WriteLine( "Tools to add standard functionality to basic POCOs" );
+				Console.WriteLine();
+				Console.WriteLine( "Usage:" );
+				Console.WriteLine( "EntityCreator.exe [drive:][path]filename [[drive:][path]assemblies[ ...]]" );
+				Console.WriteLine();
+				Console.WriteLine( "\tfilename\tFile to add functionality to" );
+				Console.WriteLine( "\tassemblies\tExtra assemblies needed to resolve types" );
+				Console.WriteLine();
+				return 1;
+			}
+
 			IEnumerable<string> lines = File.ReadAllLines( args[0] );
 
 			KnownTypesList = args
@@ -278,6 +292,17 @@ $@"		public bool Equals( {Class} that ) {{
 				.Select( a => a.GetTypes() )
 				.Select( lot => lot.ToDictionary( t => t.FullName ) )
 				.Prepend( BuildInTypes );
+
+			if( 1 == KnownTypesList.Count() ) {
+				KnownTypesList = Assembly
+					.GetExecutingAssembly()
+					.GetReferencedAssemblies()
+					.Select( an => Assembly.Load( an ) )
+					.Distinct()
+					.Select( a => a.GetTypes() )
+					.Select( lot => lot.ToDictionary( t => t.FullName ) )
+					.Prepend( BuildInTypes );
+			}
 
 			IEnumerable<string> Usings = lines
 				.Where( line => line.StartsWith( "using " ) );

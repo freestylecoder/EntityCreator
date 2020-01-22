@@ -313,6 +313,11 @@ $@"		public bool Equals( {Class} that ) {{
 				.Split( ' ' )
 				[1];
 
+			if( string.IsNullOrWhiteSpace( Namespace ) ) {
+				Console.WriteLine( "Namespace not found" );
+				return 1;
+			}
+
 			string Class = lines
 				.Where( line => line.Contains( "class " ) )
 				.Single()
@@ -320,6 +325,11 @@ $@"		public bool Equals( {Class} that ) {{
 				[1]
 				.Split()
 				[0];
+
+			if( string.IsNullOrWhiteSpace( Class ) ) {
+				Console.WriteLine( "Class not found" );
+				return 1;
+			}
 
 			IEnumerable<FieldData> Fields = lines
 				.Where( line => line.Contains( "public readonly " ) )
@@ -331,9 +341,13 @@ $@"		public bool Equals( {Class} that ) {{
 				)
 				.Select( x => GetFieldData( new FieldData( x[0], x[1], parameters: x.Skip( 2 ) ) ) );
 
-			if( Fields.Any( fd => fd.IsEnumerable ) )
+			if( Fields.Any( fd => fd.IsEnumerable ) ) {
 				if( !Usings.Contains( "using System.Linq;" ) )
 					Usings = Usings.Concat( new[] { "using System.Linq;" } );
+			} else {
+				Console.WriteLine( "No fields found" );
+				return 1;
+			}
 
 			File.WriteAllText(
 				args[0],

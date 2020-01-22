@@ -8,7 +8,7 @@ EntityCreator.exe [drive:][path]filename [[drive:][path]assemblies[ ...]]
   assemblies    Extra assemblies needed to resolve types
 
 
-The purpose of the list of assemblies is to allow the application to refect upon the data types of the fields. We do this to decide how to had vrious things. For example, we need to know whether a given type is a ReferenceType or an ValueType.
+The purpose of the list of assemblies is to allow the application to reflect upon the data types of the fields. For example, we need to know whether a given type is a ReferenceType or an ValueType.
 
 If no assemblies are passed in, we load `mscorelib`, `System`, and `System.Core`.  If assemblies are passed in, we load those assemblies and and referenced assemblies.  This is useful for when the POCO uses other types you created.
 
@@ -186,10 +186,10 @@ namespace SomeRandomLib {
 ```
 
 # Known Issues
-We currently override ToString, but we throw a NotImplementedException. From the outseide, I cannot guess the best field or fields to use to create the string. If you end up using it, the NotImplementedException will make it obvious very quickly.
+We currently override ToString, but we throw a NotImplementedException. From the outside, I cannot guess the best field or fields to use to create the string. If you end up using it, the NotImplementedException will make it obvious very quickly.
 
 # Notes
-We've been building this project on my live streams Fell free to join me on Mondays and Wednesdays at 1PM CST :)
+We've been building this project on my live streams feel free to join me on Mondays and Wednesdays at 1PM CST :)
 https://twitch.tv/freestylecoder
 https://mixer.com/freestylecoder
 

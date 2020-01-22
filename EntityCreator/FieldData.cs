@@ -10,7 +10,6 @@ namespace EntityCreator {
 		public readonly bool IsValueType;
 		public readonly bool IsCloneable;
 		public readonly bool HasCopyCtor;
-		public readonly IEnumerable<int> Ints;
 		public readonly IEnumerable<string> Parameters;
 
 		public FieldData (
@@ -20,38 +19,34 @@ namespace EntityCreator {
 			bool isvaluetype = default,
 			bool iscloneable = default,
 			bool hascopyctor = default,
-			IEnumerable<int> ints = default,
 			IEnumerable<string> parameters = default
 		) {
-			this.DataType = datatype.Clone() as string;
-			this.Name = name.Clone() as string;
+			this.DataType = datatype;
+			this.Name = name;
 			this.IsEnumerable = isenumerable;
 			this.IsValueType = isvaluetype;
 			this.IsCloneable = iscloneable;
 			this.HasCopyCtor = hascopyctor;
-			this.Ints = this.Ints = ints?.Select( x => x ) ?? Enumerable.Empty<int>();
-			this.Parameters = parameters?.Select( x => x.Clone() as string ) ?? Enumerable.Empty<string>();
+			this.Parameters = this.Parameters = parameters?.Select( x => x ) ?? Enumerable.Empty<string>();
 		}
 
 		public FieldData( FieldData copy )
-			: this( copy.DataType, copy.Name, copy.IsEnumerable, copy.IsValueType, copy.IsCloneable, copy.HasCopyCtor, copy.Ints, copy.Parameters ) { }
+			: this( copy.DataType, copy.Name, copy.IsEnumerable, copy.IsValueType, copy.IsCloneable, copy.HasCopyCtor, copy.Parameters ) { }
 
 		public FieldData WithDataType( string datatype ) =>
-			new FieldData( datatype, this.Name, this.IsEnumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, this.Ints, this.Parameters );
+			new FieldData( datatype, this.Name, this.IsEnumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, this.Parameters );
 		public FieldData WithName( string name ) =>
-			new FieldData( this.DataType, name, this.IsEnumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, this.Ints, this.Parameters );
+			new FieldData( this.DataType, name, this.IsEnumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, this.Parameters );
 		public FieldData WithIsEnumerable( bool isenumerable ) =>
-			new FieldData( this.DataType, this.Name, isenumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, this.Ints, this.Parameters );
+			new FieldData( this.DataType, this.Name, isenumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, this.Parameters );
 		public FieldData WithIsValueType( bool isvaluetype ) =>
-			new FieldData( this.DataType, this.Name, this.IsEnumerable, isvaluetype, this.IsCloneable, this.HasCopyCtor, this.Ints, this.Parameters );
+			new FieldData( this.DataType, this.Name, this.IsEnumerable, isvaluetype, this.IsCloneable, this.HasCopyCtor, this.Parameters );
 		public FieldData WithIsCloneable( bool iscloneable ) =>
-			new FieldData( this.DataType, this.Name, this.IsEnumerable, this.IsValueType, iscloneable, this.HasCopyCtor, this.Ints, this.Parameters );
+			new FieldData( this.DataType, this.Name, this.IsEnumerable, this.IsValueType, iscloneable, this.HasCopyCtor, this.Parameters );
 		public FieldData WithHasCopyCtor( bool hascopyctor ) =>
-			new FieldData( this.DataType, this.Name, this.IsEnumerable, this.IsValueType, this.IsCloneable, hascopyctor, this.Ints, this.Parameters );
-		public FieldData WithInts( IEnumerable<int> ints ) =>
-			new FieldData( this.DataType, this.Name, this.IsEnumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, ints, this.Parameters );
+			new FieldData( this.DataType, this.Name, this.IsEnumerable, this.IsValueType, this.IsCloneable, hascopyctor, this.Parameters );
 		public FieldData WithParameters( IEnumerable<string> parameters ) =>
-			new FieldData( this.DataType, this.Name, this.IsEnumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, this.Ints, parameters );
+			new FieldData( this.DataType, this.Name, this.IsEnumerable, this.IsValueType, this.IsCloneable, this.HasCopyCtor, parameters );
 
 		public override bool Equals( object obj ) {
 			if( obj is FieldData that )
@@ -61,8 +56,8 @@ namespace EntityCreator {
 		}
 
 		private int? _hash = null;
-		private const int _bigPrime = 10559;
-		private const int _littlePrime = 8429;
+		private const int _bigPrime = 45887;
+		private const int _littlePrime = 7243;
 		public override int GetHashCode() {
 			Func<object, int> SafeHashCode = ( obj ) =>
 				obj is object ish
@@ -80,11 +75,8 @@ namespace EntityCreator {
 					_hash = _hash * _littlePrime + SafeHashCode( this.IsCloneable );
 					_hash = _hash * _littlePrime + SafeHashCode( this.HasCopyCtor );
 
-					foreach( int x in Ints )
-						_hash = _hash * _littlePrime + SafeHashCode( this.Ints );
-
-					foreach( string x in Parameters )
-						_hash = _hash * _littlePrime + SafeHashCode( this.Parameters );
+					foreach( string x in Parameters.OrderBy( y => y ) )
+						_hash = _hash * _littlePrime + SafeHashCode( x );
 				}
 			}
 
@@ -92,7 +84,7 @@ namespace EntityCreator {
 		}
 
 		public override string ToString() =>
-			$"{this.DataType} {this.Name}";
+			$"{DataType} {Name}";
 
 		public bool Equals( FieldData that ) {
 			if( ReferenceEquals( that, null ) )
@@ -109,12 +101,8 @@ namespace EntityCreator {
 					&& this.IsCloneable == that.IsCloneable
 					&& this.HasCopyCtor == that.HasCopyCtor
 					&& Enumerable.SequenceEqual(
-						this.Ints,
-						that.Ints
-					)
-					&& Enumerable.SequenceEqual(
-						this.Parameters,
-						that.Parameters
+						this.Parameters.OrderBy( y => y ),
+						that.Parameters.OrderBy( y => y )
 					)
 				);
 		}

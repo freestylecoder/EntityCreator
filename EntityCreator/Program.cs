@@ -267,7 +267,7 @@ $@"		public bool Equals( {Class} that ) {{
 			}
 		}
 
-		private static void Main( string[] args ) {
+		private static int Main( string[] args ) {
 			IEnumerable<string> lines = File.ReadAllLines( args[0] );
 
 			KnownTypesList = args
@@ -348,6 +348,8 @@ namespace {Namespace} {{
 	}}
 }}"
 			);
+
+			return 0;
 		}
 	}
 }

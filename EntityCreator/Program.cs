@@ -341,12 +341,14 @@ $@"		public bool Equals( {Class} that ) {{
 				)
 				.Select( x => GetFieldData( new FieldData( x[0], x[1], parameters: x.Skip( 2 ) ) ) );
 
+			if( !Fields.Any() ) {
+				Console.WriteLine( "No fields found" );
+				return 1;
+			}
+
 			if( Fields.Any( fd => fd.IsEnumerable ) ) {
 				if( !Usings.Contains( "using System.Linq;" ) )
 					Usings = Usings.Concat( new[] { "using System.Linq;" } );
-			} else {
-				Console.WriteLine( "No fields found" );
-				return 1;
 			}
 
 			File.WriteAllText(
